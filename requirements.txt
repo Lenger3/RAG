@@ -7,6 +7,9 @@ PyGithub>=2.1.0
 # Local LLM
 ollama>=0.1.0
 
+# TUI
+textual>=0.50.0
+
 # CLI
 click>=8.1.0
 rich>=13.0.0
