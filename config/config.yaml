@@ -1,6 +1,6 @@
 embedding:
   model: "sentence-transformers/all-MiniLM-L6-v2"
-  device: "cpu"  # or "cuda"
+  device: "cpu"  # "mps" Apple Silicon için, "cuda" GPU için
 
 chunking:
   strategy: "function"  # function, class, file, sliding
@@ -12,8 +12,7 @@ retrieval:
   similarity_threshold: 0.3
 
 llm:
-  provider: "ollama"           # openai veya ollama
-  model: "qwen2.5:3b"         # Türkçe desteği güçlü, ~2GB
+  model: "qwen2.5:3b"         # Türkçe desteği güçlü, ~2GB | alternatif: qwen2.5:7b, llama3.2:3b
   ollama_host: "http://localhost:11434"
   temperature: 0.1
   max_tokens: 2000

@@ -1,6 +1,8 @@
 # Code RAG 🔍
 
-GitHub repository'lerini klonlayıp analiz eden, ChromaDB'de indexleyen ve doğal dil sorguları ile kod araması yapabilen RAG sistemi.
+GitHub repository'lerini klonlayıp analiz eden, ChromaDB'de indexleyen ve **tamamen yerel** olarak doğal dil sorguları ile kod araması yapabilen RAG sistemi.
+
+> 🏠 **Tamamen offline çalışır** — API key gerekmez, veriler buluta gitmez.
 
 ## Kurulum
 
@@ -8,43 +10,71 @@ GitHub repository'lerini klonlayıp analiz eden, ChromaDB'de indexleyen ve doğa
 # 1. Virtual environment oluştur
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate  # Windows
 
 # 2. Bağımlılıkları yükle
 pip install -r requirements.txt
-
-# 3. .env dosyasını oluştur
-cp .env.example .env
-# .env dosyasını açıp OPENAI_API_KEY'i girin
 ```
+
+## Ollama Kurulumu (Yerel LLM)
+
+```bash
+# 1. Ollama'yı yükle → https://ollama.com/download (macOS: .dmg indir ve aç)
+
+# 2. Türkçe desteği güçlü, hafif bir model çek
+ollama pull qwen2.5:3b     # ~2GB — önerilen
+# veya
+ollama pull qwen2.5:7b     # ~4.7GB — daha iyi kalite
+```
+
+Kullanılabilir modeller:
+
+| Model | Boyut | Türkçe | Hız |
+|---|---|---|---|
+| `qwen2.5:3b` ⭐ | ~2 GB | Mükemmel | Çok hızlı |
+| `qwen2.5:7b` | ~4.7 GB | Çok iyi | Hızlı |
+| `llama3.2:3b` | ~2 GB | Orta | Çok hızlı |
+| `gemma3:4b` | ~3.3 GB | İyi | Hızlı |
+
+Modeli değiştirmek için `config/config.yaml` dosyasından:
+```yaml
+llm:
+  model: "qwen2.5:7b"
+```
+
+---
 
 ## Kullanım
 
 ### Repo İndeksleme
 
 ```bash
-python -m src.cli.main index --url https://github.com/pallets/click
+python -m src.cli.main index --url https://github.com/kullanici/repo
 ```
 
 Seçenekler:
 - `--url, -u` GitHub repo URL'si (zorunlu)
 - `--collection, -c` Koleksiyon adı (varsayılan: repo adı)
-- `--strategy, -s` Chunking stratejisi: `function` | `class` | `file` | `sliding` (varsayılan: `function`)
+- `--strategy, -s` Chunking stratejisi: `function` | `class` | `file` | `sliding`
 - `--max-chunk` Maksimum chunk token boyutu (varsayılan: 1000)
-- `--embedding` Embedding sağlayıcı: `local` | `openai` (varsayılan: `local`)
 
 ### Sorgulama
 
 ```bash
-python -m src.cli.main query --collection click "How is command group implemented?"
+# LLM ile cevap al
+python -m src.cli.main query --collection myrepo "hangi model kullanılmış?"
+
+# Sadece kod parçalarını getir (LLM olmadan)
+python -m src.cli.main query --collection myrepo "authentication" --no-llm
+
+# Streaming modda cevap
+python -m src.cli.main query --collection myrepo "ana giriş noktası nerede?" --stream
 ```
 
 Seçenekler:
 - `--collection, -c` Koleksiyon adı (zorunlu)
 - `--top-k, -k` Kaç chunk getirileceği (varsayılan: 5)
-- `--no-llm` Sadece retrieve sonuçlarını göster (LLM olmadan)
+- `--no-llm` Sadece retrieve sonuçlarını göster
 - `--stream` Streaming modda cevap al
-- `--embedding` Embedding sağlayıcı
 
 ### Koleksiyonları Listele
 
@@ -55,7 +85,56 @@ python -m src.cli.main list
 ### Koleksiyon Sil
 
 ```bash
-python -m src.cli.main delete --collection click
+python -m src.cli.main delete --collection myrepo
+```
+
+---
+
+## Proje Yapısı
+
+```
+RAG/
+├── src/
+│   ├── indexer/
+│   │   ├── repo_cloner.py     # GitHub repo clone + dosya listeleme
+│   │   ├── file_parser.py     # Dosya okuma + Python AST parsing
+│   │   ├── code_chunker.py    # function / class / sliding chunking
+│   │   └── embedder.py        # sentence-transformers embedding (local)
+│   ├── retriever/
+│   │   ├── vector_store.py    # ChromaDB wrapper
+│   │   └── query_engine.py    # Semantic search + context builder
+│   ├── llm/
+│   │   └── generator.py       # Ollama LLM entegrasyonu
+│   └── cli/
+│       └── main.py            # CLI (index / query / list / delete)
+├── data/
+│   ├── repos/                 # Clone edilen repo'lar
+│   └── chroma_db/             # ChromaDB vektör veritabanı
+├── config/config.yaml         # Tüm ayarlar
+├── tests/                     # Unit testler (32 test)
+└── requirements.txt
+```
+
+## Konfigürasyon (`config/config.yaml`)
+
+```yaml
+llm:
+  model: "qwen2.5:3b"           # Ollama model adı
+  ollama_host: "http://localhost:11434"
+  temperature: 0.1
+  max_tokens: 2000
+
+retrieval:
+  top_k: 5
+  similarity_threshold: 0.3     # Düşürtmek → daha fazla sonuç
+
+chunking:
+  strategy: "function"          # function | class | file | sliding
+  max_chunk_size: 1000
+
+embedding:
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  device: "cpu"                 # Apple Silicon: "mps", GPU: "cuda"
 ```
 
 ## Testler
@@ -64,51 +143,18 @@ python -m src.cli.main delete --collection click
 pytest tests/ -v
 ```
 
-## Proje Yapısı
-
-```
-code-rag/
-├── src/
-│   ├── indexer/
-│   │   ├── repo_cloner.py     # GitHub repo clone
-│   │   ├── file_parser.py     # Dosya okuma + AST parsing
-│   │   ├── code_chunker.py    # Akıllı kod chunking
-│   │   └── embedder.py        # Embedding oluşturma
-│   ├── retriever/
-│   │   ├── vector_store.py    # ChromaDB wrapper
-│   │   └── query_engine.py    # Sorgulama + context building
-│   ├── llm/
-│   │   └── generator.py       # OpenAI GPT yanıt üretici
-│   └── cli/
-│       └── main.py            # CLI interface
-├── data/
-│   ├── repos/                 # Clone edilen repo'lar
-│   └── chroma_db/             # ChromaDB veritabanı
-├── config/config.yaml         # Ayarlar
-├── tests/                     # Unit testler
-├── requirements.txt
-└── .env.example
-```
-
-## Konfigürasyon
-
-`config/config.yaml` dosyasından tüm ayarlar yönetilebilir:
-
-- **embedding.model**: Kullanılacak sentence-transformers modeli
-- **chunking.strategy**: Varsayılan chunking stratejisi
-- **retrieval.top_k**: Varsayılan retrieve edilen chunk sayısı
-- **llm.model**: OpenAI model adı (gpt-4o-mini, gpt-4, vb.)
-- **chromadb.persist_directory**: ChromaDB depolama dizini
-
 ## Örnek Sorgular
 
 ```bash
-# Kimlik doğrulama nasıl implemente edilmiş?
-python -m src.cli.main query -c myrepo "How is authentication implemented?"
+# Hangi YOLO versiyonu kullanılmış?
+python -m src.cli.main query -c myrepo "yolo modeli olarak ne kullanılmış"
 
-# Hangi external kütüphaneler kullanılıyor?
-python -m src.cli.main query -c myrepo "What external libraries are used for HTTP requests?"
+# Authentication nasıl yapılmış?
+python -m src.cli.main query -c myrepo "authentication nasıl implemente edilmiş?"
 
-# Veritabanı bağlantısı nerede yapılıyor?
-python -m src.cli.main query -c myrepo "Where is the database connection configured?"
+# Veritabanı bağlantısı nerede?
+python -m src.cli.main query -c myrepo "veritabanı bağlantısı nerede?"
+
+# Hangi dış kütüphaneler kullanılıyor?
+python -m src.cli.main query -c myrepo "kullanılan kütüphaneler neler?"
 ```

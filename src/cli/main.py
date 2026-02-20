@@ -51,8 +51,7 @@ def cli():
     help="Chunking stratejisi",
 )
 @click.option("--max-chunk", default=1000, show_default=True, help="Maks chunk token boyutu")
-@click.option("--embedding", default="local", type=click.Choice(["local", "openai"]), show_default=True)
-def index(url: str, collection: str, strategy: str, max_chunk: int, embedding: str):
+def index(url: str, collection: str, strategy: str, max_chunk: int):
     """Bir GitHub reposunu clone et ve indexle."""
     from src.indexer.repo_cloner import (
         clone_repository, get_repo_info, list_code_files, extract_repo_name_from_url
@@ -97,7 +96,7 @@ def index(url: str, collection: str, strategy: str, max_chunk: int, embedding: s
         return
 
     # 3. Chunk + embed + store
-    embedder = Embedder(provider=embedding)
+    embedder = Embedder()
     vector_store = VectorStore()
     collection_obj = vector_store.initialize_collection(collection_name)
 
@@ -170,8 +169,7 @@ def index(url: str, collection: str, strategy: str, max_chunk: int, embedding: s
 @click.option("--top-k", "-k", default=5, show_default=True, help="Kaç benzer chunk getirileceği")
 @click.option("--no-llm", is_flag=True, help="LLM kullanma, sadece retrieve sonuçlarını göster")
 @click.option("--stream", is_flag=True, help="LLM cevabını streaming modda göster")
-@click.option("--embedding", default="local", type=click.Choice(["local", "openai"]), show_default=True)
-def query(question: str, collection: str, top_k: int, no_llm: bool, stream: bool, embedding: str):
+def query(question: str, collection: str, top_k: int, no_llm: bool, stream: bool):
     """Kod tabanını doğal dil ile sorgula."""
     from src.indexer.embedder import Embedder
     from src.retriever.vector_store import VectorStore
@@ -182,7 +180,7 @@ def query(question: str, collection: str, top_k: int, no_llm: bool, stream: bool
         border_style="cyan",
     ))
 
-    embedder = Embedder(provider=embedding)
+    embedder = Embedder()
     vector_store = VectorStore()
 
     # Collection var mı kontrol et
@@ -261,17 +259,16 @@ def query(question: str, collection: str, top_k: int, no_llm: bool, stream: bool
         console.print("[dim]--no-llm flag'i ile sadece retrieve sonuçlarını görebilirsiniz.[/dim]")
     except Exception as e:
         err_str = str(e).lower()
-        if "insufficient_quota" in err_str or "429" in err_str:
-            console.print("\n[red]❌ OpenAI kota aşıldı (429 - insufficient_quota)[/red]")
-            console.print("[dim]OpenAI hesabınızda kredi kalmamış. Seçenekler:[/dim]")
-            console.print("  1. [cyan]https://platform.openai.com/account/billing[/cyan] adresinden kredi yükleyin")
-            console.print(f"  2. [bold]python -m src.cli.main query --collection {collection} \"{question}\" --no-llm[/bold]")
-        elif "api_key" in err_str or "authentication" in err_str:
-            console.print("\n[red]❌ Geçersiz API key.[/red]")
-            console.print("  .env dosyasında [bold]OPENAI_API_KEY[/bold]'i kontrol edin.")
+        if "connection refused" in err_str or "connecterror" in err_str:
+            console.print("\n[red]❌ Ollama'ya bağlanılamadı![/red]")
+            console.print("  Ollama uygulamasını başlatın: [bold]https://ollama.com[/bold]")
+            console.print("  Model kurulu mu? [bold]ollama pull qwen2.5:3b[/bold]")
+        elif "model" in err_str and "not found" in err_str:
+            console.print(f"\n[red]❌ Model bulunamadı: {generator.model}[/red]")
+            console.print(f"  Çözüm: [bold]ollama pull {generator.model}[/bold]")
         else:
             console.print(f"\n[red]❌ LLM hatası: {e}[/red]")
-            console.print(f"  [bold]python -m src.cli.main query --collection {collection} \"{question}\" --no-llm[/bold]")
+        console.print(f"  [dim]Sadece retrieve için: python -m src.cli.main query --collection {collection} \"{question}\" --no-llm[/dim]")
 
 
 @cli.command(name="list")
