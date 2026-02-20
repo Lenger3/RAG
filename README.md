@@ -1,32 +1,41 @@
 # Code RAG 🔍
 
-GitHub repository'lerini klonlayıp analiz eden, ChromaDB'de indexleyen ve **tamamen yerel** olarak doğal dil sorguları ile kod araması yapabilen RAG sistemi.
+> **Tamamen yerel ve offline** çalışan GitHub kod arama sistemi.  
+> API key gerekmez. Veriler buluta gitmez.
 
-> 🏠 **Tamamen offline çalışır** — API key gerekmez, veriler buluta gitmez.
+GitHub repository'lerini klonlayıp analiz eder, ChromaDB'de indexler ve doğal dil sorguları ile ilgili kod parçalarını bulur — Ollama ile yerel LLM yanıtı üretir.
 
-## Kurulum
+---
+
+## ✨ Özellikler
+
+- 🖥️ **Terminal arayüzü (TUI)** — fare + klavye destekli interaktif ekran
+- 🏠 **Tamamen yerel** — Ollama ile internet bağlantısı gerekmez
+- 🌍 **Türkçe sorgu desteği** — Türkçe sorular, İngilizce kodda arama
+- ⚡ **Akıllı chunking** — Python AST bazlı fonksiyon/sınıf sınırları
+- 🗄️ **ChromaDB** — kalıcı vektör veritabanı
+
+---
+
+## 🚀 Kurulum
 
 ```bash
-# 1. Virtual environment oluştur
+# 1. Sanal ortam oluştur
 python -m venv venv
-source venv/bin/activate  # Linux/Mac
+source venv/bin/activate        # Linux / macOS
+# venv\Scripts\activate         # Windows
 
 # 2. Bağımlılıkları yükle
 pip install -r requirements.txt
 ```
 
-## Ollama Kurulumu (Yerel LLM)
+### Ollama (Yerel LLM)
 
 ```bash
-# 1. Ollama'yı yükle → https://ollama.com/download (macOS: .dmg indir ve aç)
-
-# 2. Türkçe desteği güçlü, hafif bir model çek
-ollama pull qwen2.5:3b     # ~2GB — önerilen
-# veya
-ollama pull qwen2.5:7b     # ~4.7GB — daha iyi kalite
+# https://ollama.com/download adresinden indirip kur (macOS: .dmg)
+# Ardından modeli çek:
+ollama pull qwen2.5:3b          # ~2 GB, Türkçe desteği mükemmel
 ```
-
-Kullanılabilir modeller:
 
 | Model | Boyut | Türkçe | Hız |
 |---|---|---|---|
@@ -35,7 +44,7 @@ Kullanılabilir modeller:
 | `llama3.2:3b` | ~2 GB | Orta | Çok hızlı |
 | `gemma3:4b` | ~3.3 GB | İyi | Hızlı |
 
-Modeli değiştirmek için `config/config.yaml` dosyasından:
+Farklı model kullanmak için `config/config.yaml`:
 ```yaml
 llm:
   model: "qwen2.5:7b"
@@ -43,7 +52,39 @@ llm:
 
 ---
 
-## Kullanım
+## 🖥️ Terminal Arayüzü (TUI)
+
+```bash
+python -m src.ui.tui
+```
+
+```
+┌─ Code RAG 🔍 ─────────────────────────────────────────┐
+│ Koleksiyonlar  │ 🔍 Sorgula │ 📥 İndeksle │ ℹ️ Hakkında │
+│                │                                       │
+│  DL_Project    │  Koleksiyon: [ DL_Project ▼ ]        │
+│  IpCam_...     │  Soru: [_________________________]   │
+│                │                                       │
+│ [🔄 Yenile]   │  [🔍 Sorgula + LLM] [📄 Sadece Ara]  │
+│ [🗑  Sil]     │                                       │
+│                │  Sonuçlar burada görünür...           │
+└────────────────┴───────────────────────────────────────┘
+ q Çıkış  r Yenile  Tab İleri  Enter Sorgula
+```
+
+| Sekme | İşlev |
+|---|---|
+| **🔍 Sorgula** | Koleksiyon seç → soru yaz → Enter veya butona bas → LLM yanıtı |
+| **📥 İndeksle** | GitHub URL gir → strateji seç → İndeksle → canlı log izle |
+| **ℹ️ Hakkında** | Kullanım kılavuzu |
+
+**Kısayollar:** `q` çıkış · `r` yenile · `Tab` widget geç · `Enter` sorgula
+
+---
+
+## 💻 Komut Satırı (CLI)
+
+TUI yerine terminal komutlarını tercih ediyorsanız:
 
 ### Repo İndeksleme
 
@@ -51,110 +92,112 @@ llm:
 python -m src.cli.main index --url https://github.com/kullanici/repo
 ```
 
-Seçenekler:
-- `--url, -u` GitHub repo URL'si (zorunlu)
-- `--collection, -c` Koleksiyon adı (varsayılan: repo adı)
-- `--strategy, -s` Chunking stratejisi: `function` | `class` | `file` | `sliding`
-- `--max-chunk` Maksimum chunk token boyutu (varsayılan: 1000)
+| Seçenek | Açıklama | Varsayılan |
+|---|---|---|
+| `--url, -u` | GitHub repo URL'si | zorunlu |
+| `--collection, -c` | Koleksiyon adı | repo adı |
+| `--strategy, -s` | `function` \| `class` \| `file` \| `sliding` | `function` |
+| `--max-chunk` | Maks token boyutu | `1000` |
 
 ### Sorgulama
 
 ```bash
-# LLM ile cevap al
-python -m src.cli.main query --collection myrepo "hangi model kullanılmış?"
+# LLM ile yanıt al
+python -m src.cli.main query --collection myrepo "yolo modeli ne kullanılmış?"
 
-# Sadece kod parçalarını getir (LLM olmadan)
+# Sadece kod bul, LLM yok
 python -m src.cli.main query --collection myrepo "authentication" --no-llm
 
-# Streaming modda cevap
+# Streaming mod
 python -m src.cli.main query --collection myrepo "ana giriş noktası nerede?" --stream
 ```
 
-Seçenekler:
-- `--collection, -c` Koleksiyon adı (zorunlu)
-- `--top-k, -k` Kaç chunk getirileceği (varsayılan: 5)
-- `--no-llm` Sadece retrieve sonuçlarını göster
-- `--stream` Streaming modda cevap al
-
-### Koleksiyonları Listele
+### Koleksiyon Yönetimi
 
 ```bash
-python -m src.cli.main list
-```
-
-### Koleksiyon Sil
-
-```bash
-python -m src.cli.main delete --collection myrepo
+python -m src.cli.main list                          # listele
+python -m src.cli.main delete --collection myrepo   # sil
 ```
 
 ---
 
-## Proje Yapısı
+## 📁 Proje Yapısı
 
 ```
 RAG/
 ├── src/
 │   ├── indexer/
 │   │   ├── repo_cloner.py     # GitHub repo clone + dosya listeleme
-│   │   ├── file_parser.py     # Dosya okuma + Python AST parsing
-│   │   ├── code_chunker.py    # function / class / sliding chunking
-│   │   └── embedder.py        # sentence-transformers embedding (local)
+│   │   ├── file_parser.py     # Dosya okuma + encoding tespiti
+│   │   ├── code_chunker.py    # AST bazlı fonksiyon/sınıf chunking
+│   │   └── embedder.py        # sentence-transformers (yerel)
 │   ├── retriever/
 │   │   ├── vector_store.py    # ChromaDB wrapper
 │   │   └── query_engine.py    # Semantic search + context builder
 │   ├── llm/
-│   │   └── generator.py       # Ollama LLM entegrasyonu
+│   │   └── generator.py       # Ollama entegrasyonu (streaming dahil)
+│   ├── ui/
+│   │   └── tui.py             # Textual terminal arayüzü
 │   └── cli/
-│       └── main.py            # CLI (index / query / list / delete)
+│       └── main.py            # Click CLI (index/query/list/delete)
 ├── data/
-│   ├── repos/                 # Clone edilen repo'lar
+│   ├── repos/                 # Clone edilen repolar
 │   └── chroma_db/             # ChromaDB vektör veritabanı
-├── config/config.yaml         # Tüm ayarlar
-├── tests/                     # Unit testler (32 test)
-└── requirements.txt
+├── config/
+│   └── config.yaml            # Tüm ayarlar
+├── tests/                     # Unit testler
+├── requirements.txt
+└── .env.example
 ```
 
-## Konfigürasyon (`config/config.yaml`)
+---
+
+## ⚙️ Konfigürasyon
+
+`config/config.yaml` dosyasından tüm ayarlar yönetilebilir:
 
 ```yaml
 llm:
-  model: "qwen2.5:3b"           # Ollama model adı
-  ollama_host: "http://localhost:11434"
-  temperature: 0.1
+  model: "qwen2.5:3b"                    # Ollama model adı
+  ollama_host: "http://localhost:11434"  # Ollama adresi
+  temperature: 0.1                       # Yaratıcılık (0=deterministik)
   max_tokens: 2000
 
 retrieval:
-  top_k: 5
-  similarity_threshold: 0.3     # Düşürtmek → daha fazla sonuç
+  top_k: 5                               # Kaç chunk getirileceği
+  similarity_threshold: 0.3             # Min benzerlik skoru
 
 chunking:
-  strategy: "function"          # function | class | file | sliding
-  max_chunk_size: 1000
+  strategy: "function"                   # function | class | file | sliding
+  max_chunk_size: 1000                   # Token cinsinden
 
 embedding:
   model: "sentence-transformers/all-MiniLM-L6-v2"
-  device: "cpu"                 # Apple Silicon: "mps", GPU: "cuda"
+  device: "cpu"                          # Apple Silicon: "mps" | GPU: "cuda"
 ```
 
-## Testler
+---
+
+## 🧪 Testler
 
 ```bash
 pytest tests/ -v
 ```
 
-## Örnek Sorgular
+---
+
+## 💡 Örnek Sorgular
 
 ```bash
-# Hangi YOLO versiyonu kullanılmış?
-python -m src.cli.main query -c myrepo "yolo modeli olarak ne kullanılmış"
+# YOLO modeli tespit
+python -m src.cli.main query -c myrepo "yolo modeli olarak ne kullanılmış?"
 
-# Authentication nasıl yapılmış?
+# Authentication akışı
 python -m src.cli.main query -c myrepo "authentication nasıl implemente edilmiş?"
 
-# Veritabanı bağlantısı nerede?
-python -m src.cli.main query -c myrepo "veritabanı bağlantısı nerede?"
+# Veritabanı bağlantısı
+python -m src.cli.main query -c myrepo "veritabanı bağlantısı nerede yapılıyor?"
 
-# Hangi dış kütüphaneler kullanılıyor?
-python -m src.cli.main query -c myrepo "kullanılan kütüphaneler neler?"
+# Hangi kütüphaneler kullanılmış?
+python -m src.cli.main query -c myrepo "kullanılan dış kütüphaneler neler?"
 ```
