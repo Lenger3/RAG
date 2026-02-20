@@ -1,0 +1,63 @@
+embedding:
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  device: "cpu"  # or "cuda"
+
+chunking:
+  strategy: "function"  # function, class, file, sliding
+  max_chunk_size: 1000
+  overlap: 100
+
+retrieval:
+  top_k: 5
+  similarity_threshold: 0.3
+
+llm:
+  provider: "ollama"           # openai veya ollama
+  model: "qwen2.5:3b"         # Türkçe desteği güçlü, ~2GB
+  ollama_host: "http://localhost:11434"
+  temperature: 0.1
+  max_tokens: 2000
+
+chromadb:
+  persist_directory: "./data/chroma_db"
+
+git:
+  clone_depth: 1  # shallow clone
+  excluded_extensions:
+    - ".pyc"
+    - ".log"
+    - ".bin"
+    - ".exe"
+    - ".png"
+    - ".jpg"
+    - ".jpeg"
+    - ".gif"
+    - ".svg"
+    - ".ico"
+    - ".zip"
+    - ".tar"
+    - ".gz"
+    - ".pdf"
+    - ".lock"
+
+supported_extensions:
+  - ".py"
+  - ".js"
+  - ".ts"
+  - ".jsx"
+  - ".tsx"
+  - ".md"
+  - ".json"
+  - ".yaml"
+  - ".yml"
+  - ".txt"
+  - ".toml"
+  - ".cfg"
+  - ".ini"
+  - ".sh"
+  - ".go"
+  - ".rs"
+  - ".java"
+  - ".cpp"
+  - ".c"
+  - ".h"
